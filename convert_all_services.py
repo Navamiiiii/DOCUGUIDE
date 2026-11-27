@@ -1,7 +1,6 @@
 import json
 import re
 from pathlib import Path
-from datetime import date
 
 DATA_FOLDER = Path("data")
 OUTPUT_FILE = DATA_FOLDER / "services.json"
@@ -95,7 +94,8 @@ def extract_service(filename, service_name):
 
         "official_link": "",
         "source_url": "",
-        "last_verified": date.today().isoformat(),
+        # Only set this after a person checks the record against an official source.
+        "last_verified": "",
 
         "raw_text": text
     }

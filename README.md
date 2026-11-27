@@ -20,10 +20,37 @@ Open the local Gradio URL printed in the terminal.
 
 - `scraper.py`: conservative extraction of public page titles, headings, links and visible text.
 - `data_manager.py`: loads JSON and performs fuzzy service-name lookup.
+- `nlp.py`: normalizes questions and recognizes service names, document names and question intents.
 - `chatbot.py`: formats answers from the local dataset; it does not invent missing facts.
 - `app.py`: Gradio interface.
 - `data/services.json`: four starter service records; all unverified values must be researched.
 - `tests/`: basic loading and lookup tests.
+
+## Run the chatbot
+
+From the project folder, install the dependencies and start the local app:
+
+```bash
+python -m pip install -r requirements.txt
+python app.py
+```
+
+Open the local Gradio URL printed in the terminal. The chatbot reads
+`data/services.json` each time it answers. To add or update information, edit the
+matching service record in that JSON array. Keep `last_verified` blank until the
+record has been checked against its official source, and add the exact `source_url`
+used for that check. The assistant says when a value is missing and reminds users
+to confirm unverified details on Seva Sindhu.
+
+## NLP flow
+
+For each message, `nlp.py` normalizes the text, identifies a service and any
+document mentioned, then classifies the question (documents, fees, eligibility,
+processing time, application steps, or a specific document check). `chatbot.py`
+looks up that intent in `data/services.json` and returns the matching field.
+Follow-up questions can reuse the service from earlier in the conversation. This
+is a lightweight local NLP pipeline; answers come from the catalogue rather than
+general internet knowledge.
 
 ## Scraping workflow
 

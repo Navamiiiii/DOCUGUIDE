@@ -1,0 +1,8 @@
+gradio
+requests
+beautifulsoup4
+pandas
+scikit-learn
+rapidfuzz
+# Optional, only if you need browser automation for JS-rendered public pages:
+playwright

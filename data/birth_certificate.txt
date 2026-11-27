@@ -1,0 +1,17 @@
+×
+Application for Birth Certificate
+Service Description : Citizens can use this service to get Birth certificate
+Eligibility: Citizens of India
+Supporting Document:
+NA
+Application Fee : Rs.50 per copy
+Service Charge (Free for Online Submission) : Rs. 35
+Delivery Time (Days) : Immediate
+Procedure for applying:
+1. Applicant submits the form
+2. Applicant will get the Acknowledgment
+3. Department will process the application
+4. Applicant will receive the Birth Certificate
+User Manual	Video Manual
+Janasevaka (For Door Step Delivery)
+Apply Online

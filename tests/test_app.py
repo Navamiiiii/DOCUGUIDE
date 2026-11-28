@@ -43,13 +43,13 @@ def test_unverified_fee_and_time_are_hidden():
     record = dict(VERIFIED, last_verified="")
     text = app.fees_markdown(record)
     assert "Rs.1" not in text and "3 days" not in text
-    assert text.count("Not verified yet") == 3
+    assert text.count("Awaiting verification") == 3
 
 
 def test_verified_record_shows_values():
     text = app.fees_markdown(VERIFIED)
     assert "Rs.1" in text and "3 days" in text
-    assert "https://example.karnataka.gov.in/apply" in app.link_markdown(VERIFIED)
+    assert "https://example.karnataka.gov.in/apply" in app.link_html(VERIFIED)
 
 
 def test_verification_needs_date_and_official_source():
@@ -73,7 +73,7 @@ def test_na_documents_are_not_a_checklist_item():
 def test_missing_fields_say_not_available():
     record = {"service_name": "Empty"}
     for text in (app.eligibility_markdown(record), app.procedure_markdown(record),
-                 app.fees_markdown(record), app.link_markdown(record),
+                 app.fees_markdown(record), app.link_html(record),
                  app.documents_view(record)[0]):
         assert app.NOT_AVAILABLE in text
 
@@ -100,6 +100,30 @@ def test_chat_uses_selected_service():
 
 def test_chat_reads_new_gradio_history():
     history = [{"role": "user", "content": [{"type": "text", "text": "income certificate"}]}]
-    answer, active = app.respond("what is the fee?", history, None)
+    answer, _ = app.respond("what is the fee?", history, None)
     assert "Income Certificate" in answer
-    assert active == "Income Certificate"
+
+
+def test_details_hidden_until_a_real_service_is_chosen():
+    assert app.details_visibility(None)["visible"] is False
+    assert app.details_visibility("Marriage Certificate")["visible"] is False
+    assert app.details_visibility("Income Certificate")["visible"] is True
+
+
+def test_unsupported_search_selects_nothing():
+    dropdown, message = app.run_search("marriage certificate")
+    assert dropdown["value"] is None and "No matching service" in message
+
+
+def test_search_opens_only_an_unambiguous_match():
+    assert app.run_search("income")[0]["value"] == "Income Certificate"
+    assert app.run_search("certificate")[0]["value"] is None
+
+
+def test_unverified_warning_appears_only_once():
+    record = dict(VERIFIED, last_verified="")
+    heading, _ = app.documents_view(record)
+    page = "".join([app.status_markdown(record), app.eligibility_markdown(record), heading,
+                    app.procedure_markdown(record), app.fees_markdown(record),
+                    app.link_html(record)])
+    assert page.count("Not yet verified") == 1

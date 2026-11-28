@@ -306,10 +306,24 @@ def plain_history(history):
 def respond(message, history, selected_service):
     """Send the user's question to chatbot.py and return its reply."""
     try:
-        mentioned_service = parse_query(message).service_name
-        active_service = mentioned_service or selected_service
+        normalized_history = plain_history(history)
+        parsed_message = parse_query(message)
+        mentioned_service = parsed_message.service_name
+        if parsed_message.unsupported_service or parsed_message.ambiguous_services:
+            active_service = None
+        else:
+            active_service = mentioned_service or selected_service
+            if active_service is None:
+                for turn in reversed(normalized_history):
+                    if isinstance(turn, dict) and turn.get("role") == "user":
+                        prior = parse_query(str(turn.get("content") or ""))
+                        if prior.unsupported_service or prior.ambiguous_services:
+                            break
+                        if prior.service_name:
+                            active_service = prior.service_name
+                            break
         answer = answer_question(
-            message, plain_history(history), context_service=active_service
+            message, normalized_history, context_service=active_service
         )
     except Exception as error:  # last safety net so the chat never just breaks
         print(f"Chatbot error: {error!r}")

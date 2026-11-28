@@ -100,5 +100,6 @@ def test_chat_uses_selected_service():
 
 def test_chat_reads_new_gradio_history():
     history = [{"role": "user", "content": [{"type": "text", "text": "income certificate"}]}]
-    answer, _ = app.respond("what is the fee?", history, None)
+    answer, active = app.respond("what is the fee?", history, None)
     assert "Income Certificate" in answer
+    assert active == "Income Certificate"

@@ -29,12 +29,20 @@ INTENT_FIELDS = {
     "official_link": "official_link",
 }
 
+SUPPORTED_QUESTION_TYPES = "documents, eligibility, fees, processing time, application steps, acknowledgement, or a service overview"
+
 
 def _format_value(value):
     if isinstance(value, list):
         if not value:
             return "Not available in the current dataset."
-        return "\n".join(f"  {i}. {item}" for i, item in enumerate(value, 1))
+        visible_items = [
+            item for item in value
+            if str(item).strip().lower() not in {"na", "n/a", "none", "null"}
+        ]
+        if not visible_items:
+            return "The dataset lists this as NA; it does not name any supporting documents."
+        return "\n".join(f"  {i}. {item}" for i, item in enumerate(visible_items, 1))
     if value is None or not str(value).strip():
         return "Not available in the current dataset."
     if str(value).strip().lower() in {"na", "n/a", "none", "null"}:
@@ -59,7 +67,20 @@ def answer_question(message: str, history=None, context_service: str | None = No
     if not message or not message.strip():
         return "Ask me about income, caste, residence, or birth certificates."
     parsed = parse_query(message)
-    service = get_service(parsed.service_name) if parsed.service_name else get_service(message)
+    if parsed.unsupported_service:
+        names = ", ".join(item["service_name"] for item in list_services())
+        return (
+            f"I don't have information about {parsed.unsupported_service} in my dataset. "
+            f"I can help with {names}."
+        )
+    if parsed.ambiguous_services:
+        names = " or ".join(parsed.ambiguous_services)
+        return f"I found more than one certificate in your question ({names}). Which one do you mean?"
+
+    # Only accept an explicit service entity, selected-service context, or an
+    # explicit service in chat history. Never fuzzy-match the whole sentence:
+    # unrelated names can share the generic word "certificate".
+    service = get_service(parsed.service_name) if parsed.service_name else None
     if service is None and context_service:
         service = get_service(context_service)
     if service is None:
@@ -67,7 +88,7 @@ def answer_question(message: str, history=None, context_service: str | None = No
         # service named in an earlier turn.
         past_questions = _history_text(history)
         prior_service = parse_query(past_questions).service_name
-        service = get_service(prior_service) if prior_service else get_service(past_questions)
+        service = get_service(prior_service) if prior_service else None
     if service is None:
         if parsed.document and parsed.intent == "document_check":
             matches = [
@@ -82,8 +103,7 @@ def answer_question(message: str, history=None, context_service: str | None = No
                 names = ", ".join(matches)
                 return (
                     f"**{parsed.document}** appears in the document list for: {names}. "
-                    "I couldn't tell which certificate you meant from this message. "
-                    "If you meant Income Certificate, yes, it is listed there. "
+                    "I couldn't tell which certificate you mean. Please specify one before I give a certificate-specific answer. "
                     "These records have not been officially verified; confirm current requirements on Seva Sindhu."
                 )
         services = list_services()
@@ -100,7 +120,25 @@ def answer_question(message: str, history=None, context_service: str | None = No
         (item for item in required_documents if str(item).casefold() == str(document).casefold()),
         None,
     ) if document else None
-    if parsed.intent == "feasibility":
+    if parsed.intent == "acknowledgement":
+        acknowledgement_steps = [
+            str(step).strip()
+            for step in service.get("application_procedure", [])
+            if "acknowledg" in str(step).lower() or "receipt" in str(step).lower()
+        ]
+        if acknowledgement_steps:
+            steps = " ".join(acknowledgement_steps)
+            result = (
+                f"For {service['service_name']}, the dataset says: {steps} "
+                "It does not explain what to do if you did not receive it. "
+                "Please contact the official service channel to check your application."
+            )
+        else:
+            result = (
+                f"The current {service['service_name']} record does not mention an acknowledgement "
+                "or explain how to resolve a missing one. Please contact the official service channel."
+            )
+    elif parsed.intent == "feasibility":
         processing_time = str(service.get("processing_time") or "").strip()
         requested_days = re.search(r"\b(\d+)\s*days?\b", parsed.normalized_text)
         if processing_time.isdigit():
@@ -131,13 +169,18 @@ def answer_question(message: str, history=None, context_service: str | None = No
         label = FIELD_LABELS[field]
         value = _format_value(service.get(field))
         result = f"**{service['service_name']} — {label}**\n{value}"
-    else:
+    elif parsed.intent == "overview":
         lines = [f"**{service['service_name']}**"]
         for key, label in FIELD_LABELS.items():
             value = service.get(key)
             if value:
                 lines.append(f"**{label}:**\n{_format_value(value)}")
         result = "\n\n".join(lines)
+    else:
+        result = (
+            f"I recognized **{service['service_name']}**, but not what information you need. "
+            f"You can ask about {SUPPORTED_QUESTION_TYPES}."
+        )
 
     verified = service.get("last_verified")
     source = service.get("source_url") or service.get("official_link")
